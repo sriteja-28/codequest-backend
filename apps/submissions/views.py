@@ -10,6 +10,13 @@ from .serializers import (
 )
 from .publisher import publish_submission_job
 
+
+
+from rest_framework.permissions import IsAuthenticated
+from apps.problems.models import Problem
+
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,8 +89,9 @@ class UserSubmissionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Submission.objects.filter(user=self.request.user)
-        slug = self.kwargs.get("problem_slug")
+        qs = Submission.objects.filter(user=self.request.user,is_sample_run=False)
+        # slug = self.kwargs.get("problem_slug")
+        slug = self.kwargs.get("problem_slug") or self.request.query_params.get("problem_slug")
         if slug:
             qs = qs.filter(problem__slug=slug)
         return qs.select_related("problem")
@@ -141,7 +149,8 @@ class JudgeCallbackView(APIView):
                 logger.warning(f"TestCase {result_data.get('test_case_id')} not found")
 
         # Update problem acceptance counter and user solved tracking
-        if submission.status == Submission.Status.ACCEPTED:
+        # if submission.status == Submission.Status.ACCEPTED:
+        if submission.status == Submission.Status.ACCEPTED and not submission.is_sample_run:
             problem = submission.problem
             problem.accepted_submissions += 1
             problem.save(update_fields=["accepted_submissions"])
@@ -180,3 +189,53 @@ class JudgeCallbackView(APIView):
             logger.warning(f"Could not broadcast submission update: {e}")
 
         return Response({"ok": True})
+    
+
+
+
+class RunCodeView(APIView):
+    """
+    POST /api/run-code/
+    Enqueue a 'sample run' submission to the judge worker instead of running code directly.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        slug = request.data.get("problem_slug")
+        code = request.data.get("code")
+        language = request.data.get("language")
+
+        if not slug or not code or not language:
+            return Response({"error": "Missing fields"}, status=400)
+
+        try:
+            problem = Problem.objects.get(slug=slug)
+        except Problem.DoesNotExist:
+            return Response({"error": "Problem not found"}, status=404)
+
+        # Create a temporary submission object with QUEUED status
+        from .models import Submission
+        submission = Submission.objects.create(
+            user=request.user,
+            problem=problem,
+            code=code,
+            language=language,
+            status=Submission.Status.QUEUED,
+            is_sample_run=True, 
+        )
+
+        # Enqueue to RabbitMQ
+        published = publish_submission_job(
+            submission_id=str(submission.id),
+            problem_id=problem.id,
+            language=language,
+            code=code,
+            run_sample=True,  # optional flag to indicate 'sample test run'
+        )
+
+        if not published:
+            submission.status = Submission.Status.INTERNAL_ERROR
+            submission.save(update_fields=["status"])
+            return Response({"error": "Failed to enqueue code"}, status=503)
+
+        return Response({"submission_id": str(submission.id), "status": submission.status})

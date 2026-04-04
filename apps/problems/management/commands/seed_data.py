@@ -62,86 +62,131 @@ Output: [0,1]
         "time_complexity_worst": "O(n)",
         "space_complexity": "O(n)",
         "complexity_notes_md": "Single pass through the array with O(1) hash map lookups. O(n) space for the hash map.",
-        "starter_code_python": """import sys
+        "starter_code_python":"""import sys
 import json
 from typing import List
-
+ 
 def twoSum(nums: List[int], target: int) -> List[int]:
     # Your solution here
     pass
-
+ 
 if __name__ == "__main__":
     data = sys.stdin.read().strip().splitlines()
     nums = json.loads(data[0])
     target = int(data[1])
-    print(json.dumps(twoSum(nums, target), separators=(',', ':')))""",
+    result = twoSum(nums, target)
+    print(json.dumps(result))
+""",
         "starter_code_cpp": """#include <bits/stdc++.h>
-using namespace std;
+            using namespace std;
 
-vector<int> twoSum(vector<int>& nums, int target) {
-    // Your solution here
-    return {};
-}
+            vector<int> twoSum(vector<int>& nums, int target) {
+                // Your solution here
+                return {};
+            }
 
-int main() {
-    // Read nums array
-    string line;
-    getline(cin, line);
-    // Parse JSON array
-    vector<int> nums;
-    for (auto& c : line) if (isdigit(c)||c=='-') {}
-    // Simple parsing
-    line = line.substr(1, line.size()-2);
-    stringstream ss(line);
-    string tok;
-    while (getline(ss, tok, ',')) nums.push_back(stoi(tok));
-    int target;
-    cin >> target;
-    auto res = twoSum(nums, target);
-    cout << "[" << res[0] << "," << res[1] << "]" << endl;
-    return 0;
-}""",
+            int main() {
+                string line;
+                getline(cin, line);
+                
+                // Parse JSON array [2,7,11,15]
+                vector<int> nums;
+                line = line.substr(1, line.size()-2); // Remove [ ]
+                if (!line.empty()) {
+                    stringstream ss(line);
+                    string num;
+                    while (getline(ss, num, ',')) {
+                        nums.push_back(stoi(num));
+                    }
+                }
+                
+                int target;
+                cin >> target;
+                
+                auto res = twoSum(nums, target);
+                cout << "[" << res[0] << "," << res[1] << "]" << endl;
+                
+                return 0;
+            }
+            """,
         "starter_code_java": """import java.util.*;
 
-public class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        // Your solution here
-        return new int[]{};
-    }
+            public class Solution {
+                public int[] twoSum(int[] nums, int target) {
+                    // Your solution here
+                    return new int[]{};
+                }
 
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().replaceAll("[\[\]\s]", "");
-        String[] parts = line.split(",");
-        int[] nums = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
-        int target = Integer.parseInt(sc.nextLine().trim());
-        int[] res = new Solution().twoSum(nums, target);
-        System.out.println("[" + res[0] + "," + res[1] + "]");
-    }
-}""",
-        "starter_code_javascript": """const lines = require('fs').readFileSync('/dev/stdin','utf8').trim().split('\n');
-const nums = JSON.parse(lines[0]);
-const target = parseInt(lines[1]);
+                public static void main(String[] args) {
+                    Scanner sc = new Scanner(System.in);
+                    
+                    // Read array [2,7,11,15]
+                    String line = sc.nextLine().replaceAll("[\\[\\]\\s]", "");
+                    String[] parts = line.split(",");
+                    int[] nums = new int[parts.length];
+                    for (int i = 0; i < parts.length; i++) {
+                        nums[i] = Integer.parseInt(parts[i]);
+                    }
+                    
+                    // Read target
+                    int target = Integer.parseInt(sc.nextLine().trim());
+                    
+                    // Get result
+                    int[] res = new Solution().twoSum(nums, target);
+                    System.out.println("[" + res[0] + "," + res[1] + "]");
+                }
+            }
+            """,
+        "starter_code_javascript": """const fs = require('fs');
+                const lines = fs.readFileSync('/dev/stdin', 'utf8').trim().split('\\n');
 
-/**
- * @param {number[]} nums
- * @param {number} target
- * @return {number[]}
- */
-function twoSum(nums, target) {
-    // Your solution here
-}
+                const nums = JSON.parse(lines[0]);
+                const target = parseInt(lines[1]);
 
-console.log(JSON.stringify(twoSum(nums, target)));""",
+                /**
+                * @param {number[]} nums
+                * @param {number} target
+                * @return {number[]}
+                */
+                function twoSum(nums, target) {
+                    // Your solution here
+                    return [];
+                }
+
+                const result = twoSum(nums, target);
+                console.log(JSON.stringify(result));
+                """,
         "topics": ["Array", "Hash Table"],
         "companies": ["Google", "Amazon", "Microsoft"],
         "test_cases": [
-            {"input_data": "[2,7,11,15]\n9", "expected_output": "[0,1]", "is_sample": True, "explanation": "nums[0] + nums[1] = 2 + 7 = 9"},
-            {"input_data": "[3,2,4]\n6", "expected_output": "[1,2]", "is_sample": True, "explanation": "nums[1] + nums[2] = 2 + 4 = 6"},
-            {"input_data": "[3,3]\n6", "expected_output": "[0,1]", "is_sample": True, "explanation": ""},
-            {"input_data": "[1,2,3,4,5]\n9", "expected_output": "[3,4]", "is_sample": False},
-            {"input_data": "[-1,-2,-3,-4,-5]\n-8", "expected_output": "[2,4]", "is_sample": False},
+            {
+                "input_data": "[2,7,11,15]\n9",
+                "expected_output": "[0,1]",
+                "is_sample": True,
+                "explanation": "nums[0] + nums[1] = 2 + 7 = 9",
+            },
+            {
+                "input_data": "[3,2,4]\n6",
+                "expected_output": "[1,2]",
+                "is_sample": True,
+                "explanation": "nums[1] + nums[2] = 2 + 4 = 6",
+            },
+            {
+                "input_data": "[3,3]\n6",
+                "expected_output": "[0,1]",
+                "is_sample": True,
+                "explanation": "",
+            },
+            {
+                "input_data": "[1,2,3,4,5]\n9",
+                "expected_output": "[3,4]",
+                "is_sample": False,
+            },
+            {
+                "input_data": "[-1,-2,-3,-4,-5]\n-8",
+                "expected_output": "[2,4]",
+                "is_sample": False,
+            },
         ],
         "solutions": [
             {
@@ -259,9 +304,24 @@ console.log(isValid(s) ? "true" : "false");""",
         "topics": ["String", "Stack"],
         "companies": ["Amazon", "Bloomberg", "Facebook"],
         "test_cases": [
-            {"input_data": "()", "expected_output": "true", "is_sample": True, "explanation": ""},
-            {"input_data": "()[]{}", "expected_output": "true", "is_sample": True, "explanation": ""},
-            {"input_data": "(]", "expected_output": "false", "is_sample": True, "explanation": ""},
+            {
+                "input_data": "()",
+                "expected_output": "true",
+                "is_sample": True,
+                "explanation": "",
+            },
+            {
+                "input_data": "()[]{}",
+                "expected_output": "true",
+                "is_sample": True,
+                "explanation": "",
+            },
+            {
+                "input_data": "(]",
+                "expected_output": "false",
+                "is_sample": True,
+                "explanation": "",
+            },
             {"input_data": "([)]", "expected_output": "false", "is_sample": False},
             {"input_data": "{[]}", "expected_output": "true", "is_sample": False},
         ],
@@ -385,10 +445,24 @@ console.log(search(nums, target));""",
         "topics": ["Array", "Binary Search"],
         "companies": ["Google", "Apple", "LinkedIn"],
         "test_cases": [
-            {"input_data": "[-1,0,3,5,9,12]\n9", "expected_output": "4", "is_sample": True, "explanation": "9 exists at index 4"},
-            {"input_data": "[-1,0,3,5,9,12]\n2", "expected_output": "-1", "is_sample": True, "explanation": "2 does not exist"},
+            {
+                "input_data": "[-1,0,3,5,9,12]\n9",
+                "expected_output": "4",
+                "is_sample": True,
+                "explanation": "9 exists at index 4",
+            },
+            {
+                "input_data": "[-1,0,3,5,9,12]\n2",
+                "expected_output": "-1",
+                "is_sample": True,
+                "explanation": "2 does not exist",
+            },
             {"input_data": "[5]\n5", "expected_output": "0", "is_sample": False},
-            {"input_data": "[1,2,3,4,5,6,7,8,9,10]\n7", "expected_output": "6", "is_sample": False},
+            {
+                "input_data": "[1,2,3,4,5,6,7,8,9,10]\n7",
+                "expected_output": "6",
+                "is_sample": False,
+            },
         ],
         "solutions": [
             {
@@ -497,9 +571,24 @@ console.log(lengthOfLongestSubstring(s));""",
         "topics": ["Hash Table", "String", "Sliding Window"],
         "companies": ["Amazon", "Bloomberg", "Adobe"],
         "test_cases": [
-            {"input_data": "abcabcbb", "expected_output": "3", "is_sample": True, "explanation": "abc"},
-            {"input_data": "bbbbb", "expected_output": "1", "is_sample": True, "explanation": "b"},
-            {"input_data": "pwwkew", "expected_output": "3", "is_sample": True, "explanation": "wke"},
+            {
+                "input_data": "abcabcbb",
+                "expected_output": "3",
+                "is_sample": True,
+                "explanation": "abc",
+            },
+            {
+                "input_data": "bbbbb",
+                "expected_output": "1",
+                "is_sample": True,
+                "explanation": "b",
+            },
+            {
+                "input_data": "pwwkew",
+                "expected_output": "3",
+                "is_sample": True,
+                "explanation": "wke",
+            },
             {"input_data": "", "expected_output": "0", "is_sample": False},
             {"input_data": "aab", "expected_output": "2", "is_sample": False},
         ],
@@ -604,8 +693,18 @@ console.log(climbStairs(n));""",
         "topics": ["Math", "Dynamic Programming", "Memoization"],
         "companies": ["Amazon", "Apple", "Google"],
         "test_cases": [
-            {"input_data": "2", "expected_output": "2", "is_sample": True, "explanation": "1+1 or 2"},
-            {"input_data": "3", "expected_output": "3", "is_sample": True, "explanation": "1+1+1, 1+2, 2+1"},
+            {
+                "input_data": "2",
+                "expected_output": "2",
+                "is_sample": True,
+                "explanation": "1+1 or 2",
+            },
+            {
+                "input_data": "3",
+                "expected_output": "3",
+                "is_sample": True,
+                "explanation": "1+1+1, 1+2, 2+1",
+            },
             {"input_data": "1", "expected_output": "1", "is_sample": False},
             {"input_data": "10", "expected_output": "89", "is_sample": False},
             {"input_data": "45", "expected_output": "1836311903", "is_sample": False},
@@ -630,7 +729,9 @@ class Command(BaseCommand):
     help = "Seed the database with sample problems, contests, ads, and test users"
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.MIGRATE_HEADING("\n🌱 Seeding CodeQuest database...\n"))
+        self.stdout.write(
+            self.style.MIGRATE_HEADING("\n🌱 Seeding CodeQuest database...\n")
+        )
         self._create_users()
         self._create_sections()
         self._create_tags()
@@ -645,13 +746,31 @@ class Command(BaseCommand):
         from django.utils import timezone
 
         users_data = [
-            {"email": "admin@codequest.dev", "username": "admin", "password": "admin123",
-             "role": "ADMIN", "plan": "PRO", "display_name": "Admin"},
-            {"email": "pro@codequest.dev", "username": "prouser", "password": "user123",
-             "role": "USER", "plan": "PRO", "display_name": "Pro User",
-             "plan_expires_at": timezone.now() + timedelta(days=365)},
-            {"email": "free@codequest.dev", "username": "freeuser", "password": "user123",
-             "role": "USER", "plan": "FREE", "display_name": "Free User"},
+            {
+                "email": "admin@codequest.dev",
+                "username": "admin",
+                "password": "admin123",
+                "role": "ADMIN",
+                "plan": "PRO",
+                "display_name": "Admin",
+            },
+            {
+                "email": "pro@codequest.dev",
+                "username": "prouser",
+                "password": "user123",
+                "role": "USER",
+                "plan": "PRO",
+                "display_name": "Pro User",
+                "plan_expires_at": timezone.now() + timedelta(days=365),
+            },
+            {
+                "email": "free@codequest.dev",
+                "username": "freeuser",
+                "password": "user123",
+                "role": "USER",
+                "plan": "FREE",
+                "display_name": "Free User",
+            },
         ]
 
         for data in users_data:
@@ -681,24 +800,47 @@ class Command(BaseCommand):
         for name, display, icon, order in sections:
             Section.objects.get_or_create(
                 name=name,
-                defaults={"display_name": display, "icon": icon, "order_index": order}
+                defaults={"display_name": display, "icon": icon, "order_index": order},
             )
         self.stdout.write(f"  📁 Sections: {len(sections)} created/verified")
 
     def _create_tags(self):
         from apps.problems.models import Tag
 
-        topics = ["Array", "Hash Table", "String", "Stack", "Binary Search",
-                  "Sliding Window", "Dynamic Programming", "Math", "Memoization",
-                  "Two Pointers", "Linked List", "Tree", "Graph", "Greedy"]
-        companies = ["Google", "Amazon", "Microsoft", "Facebook", "Apple",
-                     "Bloomberg", "Adobe", "LinkedIn"]
+        topics = [
+            "Array",
+            "Hash Table",
+            "String",
+            "Stack",
+            "Binary Search",
+            "Sliding Window",
+            "Dynamic Programming",
+            "Math",
+            "Memoization",
+            "Two Pointers",
+            "Linked List",
+            "Tree",
+            "Graph",
+            "Greedy",
+        ]
+        companies = [
+            "Google",
+            "Amazon",
+            "Microsoft",
+            "Facebook",
+            "Apple",
+            "Bloomberg",
+            "Adobe",
+            "LinkedIn",
+        ]
 
         for name in topics:
             Tag.objects.get_or_create(name=name, defaults={"tag_type": "TOPIC"})
         for name in companies:
             Tag.objects.get_or_create(name=name, defaults={"tag_type": "COMPANY"})
-        self.stdout.write(f"  🏷️  Tags: {len(topics)} topics, {len(companies)} companies")
+        self.stdout.write(
+            f"  🏷️  Tags: {len(topics)} topics, {len(companies)} companies"
+        )
 
     def _create_problems(self):
         from apps.problems.models import Problem, Section, Tag, TestCase, Solution
@@ -795,7 +937,11 @@ class Command(BaseCommand):
                 "end_at": now + timedelta(hours=2),
                 "is_public": True,
                 "is_rated": False,
-                "problems": ["binary-search", "longest-substring-without-repeating", "climbing-stairs"],
+                "problems": [
+                    "binary-search",
+                    "longest-substring-without-repeating",
+                    "climbing-stairs",
+                ],
                 "scores": [100, 200, 150],
             },
         ]
@@ -810,15 +956,18 @@ class Command(BaseCommand):
                     "end_at": c_data["end_at"],
                     "is_public": c_data["is_public"],
                     "is_rated": c_data["is_rated"],
-                }
+                },
             )
             if created:
-                for i, (slug, score) in enumerate(zip(c_data["problems"], c_data["scores"])):
+                for i, (slug, score) in enumerate(
+                    zip(c_data["problems"], c_data["scores"])
+                ):
                     problem = Problem.objects.filter(slug=slug).first()
                     if problem:
                         ContestProblem.objects.get_or_create(
-                            contest=contest, problem=problem,
-                            defaults={"order_index": i, "score": score}
+                            contest=contest,
+                            problem=problem,
+                            defaults={"order_index": i, "score": score},
                         )
                 self.stdout.write(f"  🏆 Created contest: {contest.name}")
             else:
@@ -835,7 +984,7 @@ class Command(BaseCommand):
                 "description": "Left sidebar ad — shown to free users only",
                 "is_active": True,
                 "max_per_page": 1,
-            }
+            },
         )
 
         AdCreative.objects.get_or_create(
@@ -854,7 +1003,7 @@ class Command(BaseCommand):
                 "plan_target": "FREE",
                 "is_active": True,
                 "priority": 10,
-            }
+            },
         )
         self.stdout.write("  📢 Ads created")
 
@@ -865,9 +1014,15 @@ class Command(BaseCommand):
             ("ai_hints_enabled", True, "Enable AI hint system"),
             ("ai_chat_enabled", True, "Enable AI problem chat"),
             ("contests_enabled", True, "Enable contests feature"),
-            ("show_complexity_before_solve", False, "Show complexity to all users before solving"),
+            (
+                "show_complexity_before_solve",
+                False,
+                "Show complexity to all users before solving",
+            ),
             ("maintenance_mode", False, "Put site in read-only maintenance mode"),
         ]
         for key, value, desc in flags:
-            FeatureFlag.objects.get_or_create(key=key, defaults={"value": value, "description": desc})
+            FeatureFlag.objects.get_or_create(
+                key=key, defaults={"value": value, "description": desc}
+            )
         self.stdout.write(f"  🚩 Feature flags: {len(flags)} created/verified")

@@ -32,6 +32,8 @@ class Submission(models.Model):
     code = models.TextField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED, db_index=True)
 
+    is_sample_run = models.BooleanField(default=False)
+
     # Results (populated by judge)
     runtime_ms = models.PositiveIntegerField(null=True, blank=True)
     memory_kb = models.PositiveIntegerField(null=True, blank=True)

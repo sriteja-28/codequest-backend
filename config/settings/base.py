@@ -19,6 +19,7 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv(
 # Application definition
 # ─────────────────────────────────────────────
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -34,6 +35,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "channels",
+    
 ]
 
 LOCAL_APPS = [
@@ -113,6 +115,7 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [REDIS_URL],
+            # "hosts": [os.getenv("REDIS_URL", "redis://localhost:6379/1")],
         },
     },
 }

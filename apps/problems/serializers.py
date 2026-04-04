@@ -100,6 +100,11 @@ class ProblemDetailSerializer(serializers.ModelSerializer):
             "sample_test_cases", "hints",
             "acceptance_rate", "total_submissions", "accepted_submissions",
             "is_solved",
+            
+            "starter_code_python",
+            "starter_code_cpp",
+            "starter_code_java",
+            "starter_code_javascript",
         ]
 
     def get_sample_test_cases(self, obj):

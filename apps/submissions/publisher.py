@@ -20,7 +20,7 @@ def _get_connection():
     return pika.BlockingConnection(params)
 
 
-def publish_submission_job(submission_id: str, problem_id: int, language: str, code: str):
+def publish_submission_job(submission_id: str, problem_id: int, language: str, code: str, run_sample: bool = False,):
     """
     Enqueue a submission for the judge worker.
     Uses a durable queue so jobs survive RabbitMQ restarts.
@@ -30,6 +30,7 @@ def publish_submission_job(submission_id: str, problem_id: int, language: str, c
         "problem_id": problem_id,
         "language": language,
         "code": code,
+        "run_sample": run_sample,
     }
 
     try:
