@@ -5,3 +5,6 @@ class SubmissionsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.submissions"
     label = "submissions"
+    
+    def ready(self):
+        import apps.submissions.signals 
