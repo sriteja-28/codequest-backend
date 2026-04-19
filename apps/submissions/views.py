@@ -179,15 +179,36 @@ class JudgeCallbackView(APIView):
 
         # Update problem acceptance counter and user solved tracking
         # if submission.status == Submission.Status.ACCEPTED:
+        # if (
+        #     submission.status == Submission.Status.ACCEPTED
+        #     and not submission.is_sample_run
+        # ):
+        #     problem = submission.problem
+        #     problem.accepted_submissions += 1
+        #     problem.save(update_fields=["accepted_submissions"])
+
+        #     UserSolvedProblem.objects.get_or_create(
+        #         user=submission.user,
+        #         problem=problem,
+        #         defaults={
+        #             "best_runtime_ms": submission.runtime_ms,
+        #             "best_memory_kb": submission.memory_kb,
+        #         },
+        #     )
+        #     # Update user solved count
+        #     submission.user.problems_solved = UserSolvedProblem.objects.filter(
+        #         user=submission.user
+        #     ).count()
+        #     submission.user.save(update_fields=["problems_solved"])
+
+
         if (
             submission.status == Submission.Status.ACCEPTED
             and not submission.is_sample_run
         ):
             problem = submission.problem
-            problem.accepted_submissions += 1
-            problem.save(update_fields=["accepted_submissions"])
 
-            UserSolvedProblem.objects.get_or_create(
+            obj, created = UserSolvedProblem.objects.get_or_create(
                 user=submission.user,
                 problem=problem,
                 defaults={
@@ -195,11 +216,13 @@ class JudgeCallbackView(APIView):
                     "best_memory_kb": submission.memory_kb,
                 },
             )
-            # Update user solved count
-            submission.user.problems_solved = UserSolvedProblem.objects.filter(
-                user=submission.user
-            ).count()
-            submission.user.save(update_fields=["problems_solved"])
+
+            if created:
+                submission.user.problems_solved = UserSolvedProblem.objects.filter(
+                    user=submission.user
+                ).count()
+
+                submission.user.update_streak()
 
         # Broadcast via Channels
         from channels.layers import get_channel_layer

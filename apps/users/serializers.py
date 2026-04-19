@@ -60,12 +60,12 @@ class UserMeSerializer(serializers.ModelSerializer):
         fields = [
             "id", "email", "username", "display_name", "avatar_url", "bio",
             "role", "plan", "is_pro", "plan_expires_at",
-            "problems_solved", "current_streak", "last_active_date",
+            "problems_solved", "current_streak", "best_streak", "last_active_date",
             "ai_hint_limit", "ai_chat_limit",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "email", "role", "plan", "is_pro", "plan_expires_at",
-                            "problems_solved", "current_streak", "last_active_date",
+                            "problems_solved", "current_streak", "best_streak", "last_active_date",
                             "ai_hint_limit", "ai_chat_limit", "created_at", "updated_at"]
 
 
