@@ -6,15 +6,18 @@ from rest_framework.views import APIView
 from apps.users.models import UserSolvedProblem
 from .models import Submission
 from .serializers import (
-    SubmissionSerializer, SubmissionCreateSerializer, SubmissionListSerializer
+    SubmissionSerializer,
+    SubmissionCreateSerializer,
+    SubmissionListSerializer,
 )
 from .publisher import publish_submission_job
-
 
 
 from rest_framework.permissions import IsAuthenticated
 from apps.problems.models import Problem
 
+from .throttles import RunThrottle, SubmitThrottle, BurstThrottle
+from .queue import can_accept_submission, get_queue_depth
 
 
 logger = logging.getLogger(__name__)
@@ -25,9 +28,24 @@ class SubmissionCreateView(APIView):
     POST /api/submissions/
     Create a submission, enqueue it to RabbitMQ, return the submission ID.
     """
+
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [SubmitThrottle, BurstThrottle]  # Rate limiting
 
     def post(self, request):
+
+        # Circuit breaker - check queue health
+        allowed, reason = can_accept_submission(request.user)
+        if not allowed:
+            queue_depth = get_queue_depth()
+            return Response(
+                {
+                    "error": reason,
+                    "queue_depth": queue_depth,
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        # submission logic
         serializer = SubmissionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -57,6 +75,10 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
+        logger.info(
+            f"Submission {submission.id} by {request.user.username} (plan: {request.user.plan})"
+        )
+
         return Response(
             {"submission_id": str(submission.id), "status": submission.status},
             status=status.HTTP_201_CREATED,
@@ -69,6 +91,7 @@ class SubmissionDetailView(generics.RetrieveAPIView):
     Returns submission status and per-testcase results.
     Only the submitting user or an admin can view.
     """
+
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
@@ -85,13 +108,16 @@ class UserSubmissionListView(generics.ListAPIView):
     GET /api/submissions/          — all submissions for current user
     GET /api/problems/{slug}/submissions/ — filtered to a problem
     """
+
     serializer_class = SubmissionListSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Submission.objects.filter(user=self.request.user,is_sample_run=False)
+        qs = Submission.objects.filter(user=self.request.user, is_sample_run=False)
         # slug = self.kwargs.get("problem_slug")
-        slug = self.kwargs.get("problem_slug") or self.request.query_params.get("problem_slug")
+        slug = self.kwargs.get("problem_slug") or self.request.query_params.get(
+            "problem_slug"
+        )
         if slug:
             qs = qs.filter(problem__slug=slug)
         return qs.select_related("problem")
@@ -103,10 +129,12 @@ class JudgeCallbackView(APIView):
     Internal endpoint called by the judge worker to write back results.
     Protected by a shared API key (not JWT).
     """
+
     permission_classes = [permissions.AllowAny]  # Auth via API key header
 
     def post(self, request, submission_id):
         from django.conf import settings
+
         key = request.headers.get("X-Judge-Api-Key", "")
         if key != settings.JUDGE_INTERNAL_API_KEY:
             return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
@@ -123,6 +151,7 @@ class JudgeCallbackView(APIView):
         submission.error_message = data.get("error_message", "")
 
         from django.utils import timezone
+
         submission.judge_finished_at = timezone.now()
         submission.save()
 
@@ -150,7 +179,10 @@ class JudgeCallbackView(APIView):
 
         # Update problem acceptance counter and user solved tracking
         # if submission.status == Submission.Status.ACCEPTED:
-        if submission.status == Submission.Status.ACCEPTED and not submission.is_sample_run:
+        if (
+            submission.status == Submission.Status.ACCEPTED
+            and not submission.is_sample_run
+        ):
             problem = submission.problem
             problem.accepted_submissions += 1
             problem.save(update_fields=["accepted_submissions"])
@@ -164,14 +196,15 @@ class JudgeCallbackView(APIView):
                 },
             )
             # Update user solved count
-            submission.user.problems_solved = (
-                UserSolvedProblem.objects.filter(user=submission.user).count()
-            )
+            submission.user.problems_solved = UserSolvedProblem.objects.filter(
+                user=submission.user
+            ).count()
             submission.user.save(update_fields=["problems_solved"])
 
         # Broadcast via Channels
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
+
         channel_layer = get_channel_layer()
         group_name = f"submission_{submission_id}"
         try:
@@ -189,8 +222,6 @@ class JudgeCallbackView(APIView):
             logger.warning(f"Could not broadcast submission update: {e}")
 
         return Response({"ok": True})
-    
-
 
 
 class RunCodeView(APIView):
@@ -198,7 +229,9 @@ class RunCodeView(APIView):
     POST /api/run-code/
     Enqueue a 'sample run' submission to the judge worker instead of running code directly.
     """
+
     permission_classes = [IsAuthenticated]
+    throttle_classes = [RunThrottle, BurstThrottle]  # Rate limiting
 
     def post(self, request):
         slug = request.data.get("problem_slug")
@@ -215,13 +248,14 @@ class RunCodeView(APIView):
 
         # Create a temporary submission object with QUEUED status
         from .models import Submission
+
         submission = Submission.objects.create(
             user=request.user,
             problem=problem,
             code=code,
             language=language,
             status=Submission.Status.QUEUED,
-            is_sample_run=True, 
+            is_sample_run=True,
         )
 
         # Enqueue to RabbitMQ
@@ -238,4 +272,6 @@ class RunCodeView(APIView):
             submission.save(update_fields=["status"])
             return Response({"error": "Failed to enqueue code"}, status=503)
 
-        return Response({"submission_id": str(submission.id), "status": submission.status})
+        return Response(
+            {"submission_id": str(submission.id), "status": submission.status}
+        )

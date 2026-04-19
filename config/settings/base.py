@@ -35,7 +35,6 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "channels",
-    
 ]
 
 LOCAL_APPS = [
@@ -189,16 +188,28 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
-    # "DEFAULT_THROTTLE_CLASSES": [
-    # for now in windows where we don't have Redis, we disable throttling to avoid errors. In production, we will enable it.
-    # "rest_framework.throttling.AnonRateThrottle",
-    # "rest_framework.throttling.UserRateThrottle",
-    # ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        # for now in windows where we don't have Redis, we disable throttling to avoid errors. In production, we will enable it.
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",
         "user": "1000/hour",
         "ai_free": "20/day",
         "ai_pro": "200/day",
+        # rate limits for code execution and submission endpoints
+        # "run_free": "30/hour",
+        # "run_pro": "200/hour",
+        # "submit_free": "10/hour",
+        # "submit_pro": "100/hour",
+        # "burst": "5/minute",
+
+        "run_free": "10/minute",
+        "run_pro": "30/minute",
+        "submit_free": "3/minute",
+        "submit_pro": "10/minute",
+        "burst": "3/10seconds",
     },
 }
 
@@ -250,3 +261,8 @@ AI_HINTS_FREE_DAILY = 5
 AI_HINTS_PRO_DAILY = 50
 AI_CHAT_FREE_DAILY = 10
 AI_CHAT_PRO_DAILY = 200
+
+
+# Queue limits
+JUDGE_QUEUE_SOFT_LIMIT = 500
+JUDGE_QUEUE_HARD_LIMIT = 1000
