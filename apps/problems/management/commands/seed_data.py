@@ -3,7 +3,9 @@ python manage.py seed_data
 
 Seeds the database with:
 - 3 test users (admin, pro, free)
-- 5 complete problems with test cases, tags, sections, and editorial solutions
+- 25 complete problems with test cases, tags, sections, and editorial solutions
+- 2 practice lists and 2 courses
+- Today's daily problem
 - 2 contests using those problems
 - Sample ad placements and creatives
 - Feature flags
@@ -62,128 +64,43 @@ Output: [0,1]
         "time_complexity_worst": "O(n)",
         "space_complexity": "O(n)",
         "complexity_notes_md": "Single pass through the array with O(1) hash map lookups. O(n) space for the hash map.",
-        "starter_code_python":"""import sys
-import json
-from typing import List
- 
-def twoSum(nums: List[int], target: int) -> List[int]:
-    # Your solution here
-    pass
- 
-if __name__ == "__main__":
-    data = sys.stdin.read().strip().splitlines()
-    nums = json.loads(data[0])
-    target = int(data[1])
-    result = twoSum(nums, target)
-    print(json.dumps(result))
-""",
-        "starter_code_cpp": """#include <bits/stdc++.h>
-            using namespace std;
-
-            vector<int> twoSum(vector<int>& nums, int target) {
-                // Your solution here
-                return {};
-            }
-
-            int main() {
-                string line;
-                getline(cin, line);
-                
-                // Parse JSON array [2,7,11,15]
-                vector<int> nums;
-                line = line.substr(1, line.size()-2); // Remove [ ]
-                if (!line.empty()) {
-                    stringstream ss(line);
-                    string num;
-                    while (getline(ss, num, ',')) {
-                        nums.push_back(stoi(num));
-                    }
-                }
-                
-                int target;
-                cin >> target;
-                
-                auto res = twoSum(nums, target);
-                cout << "[" << res[0] << "," << res[1] << "]" << endl;
-                
-                return 0;
-            }
-            """,
-        "starter_code_java": """import java.util.*;
-
-            public class Solution {
-                public int[] twoSum(int[] nums, int target) {
-                    // Your solution here
-                    return new int[]{};
-                }
-
-                public static void main(String[] args) {
-                    Scanner sc = new Scanner(System.in);
-                    
-                    // Read array [2,7,11,15]
-                    String line = sc.nextLine().replaceAll("[\\[\\]\\s]", "");
-                    String[] parts = line.split(",");
-                    int[] nums = new int[parts.length];
-                    for (int i = 0; i < parts.length; i++) {
-                        nums[i] = Integer.parseInt(parts[i]);
-                    }
-                    
-                    // Read target
-                    int target = Integer.parseInt(sc.nextLine().trim());
-                    
-                    // Get result
-                    int[] res = new Solution().twoSum(nums, target);
-                    System.out.println("[" + res[0] + "," + res[1] + "]");
-                }
-            }
-            """,
-        "starter_code_javascript": """const fs = require('fs');
-                const lines = fs.readFileSync('/dev/stdin', 'utf8').trim().split('\\n');
-
-                const nums = JSON.parse(lines[0]);
-                const target = parseInt(lines[1]);
-
-                /**
-                * @param {number[]} nums
-                * @param {number} target
-                * @return {number[]}
-                */
-                function twoSum(nums, target) {
-                    // Your solution here
-                    return [];
-                }
-
-                const result = twoSum(nums, target);
-                console.log(JSON.stringify(result));
-                """,
+        "function_signature": {
+            "name": "twoSum",
+            "params": [
+                {"name": "nums", "type": "int[]"},
+                {"name": "target", "type": "int"},
+            ],
+            "return_type": "int[]",
+        },
+        "compare_mode": "UNORDERED",
         "topics": ["Array", "Hash Table"],
         "companies": ["Google", "Amazon", "Microsoft"],
         "test_cases": [
             {
-                "input_data": "[2,7,11,15]\n9",
+                "input_data": '{"nums": [2, 7, 11, 15], "target": 9}',
                 "expected_output": "[0,1]",
                 "is_sample": True,
                 "explanation": "nums[0] + nums[1] = 2 + 7 = 9",
             },
             {
-                "input_data": "[3,2,4]\n6",
+                "input_data": '{"nums": [3, 2, 4], "target": 6}',
                 "expected_output": "[1,2]",
                 "is_sample": True,
                 "explanation": "nums[1] + nums[2] = 2 + 4 = 6",
             },
             {
-                "input_data": "[3,3]\n6",
+                "input_data": '{"nums": [3, 3], "target": 6}',
                 "expected_output": "[0,1]",
                 "is_sample": True,
                 "explanation": "",
             },
             {
-                "input_data": "[1,2,3,4,5]\n9",
+                "input_data": '{"nums": [1, 2, 3, 4, 5], "target": 9}',
                 "expected_output": "[3,4]",
                 "is_sample": False,
             },
             {
-                "input_data": "[-1,-2,-3,-4,-5]\n-8",
+                "input_data": '{"nums": [-1, -2, -3, -4, -5], "target": -8}',
                 "expected_output": "[2,4]",
                 "is_sample": False,
             },
@@ -253,77 +170,34 @@ An input string is valid if:
         "time_complexity_worst": "O(n)",
         "space_complexity": "O(n)",
         "complexity_notes_md": "Single pass O(n), stack holds at most n/2 opening brackets → O(n) space.",
-        "starter_code_python": """import sys
-
-def isValid(s: str) -> bool:
-    # Your solution here
-    pass
-
-if __name__ == "__main__":
-    s = sys.stdin.read().strip()
-    print("true" if isValid(s) else "false")""",
-        "starter_code_cpp": """#include <bits/stdc++.h>
-using namespace std;
-
-bool isValid(string s) {
-    // Your solution here
-    return false;
-}
-
-int main() {
-    string s;
-    getline(cin, s);
-    cout << (isValid(s) ? "true" : "false") << endl;
-    return 0;
-}""",
-        "starter_code_java": """import java.util.*;
-
-public class Solution {
-    public boolean isValid(String s) {
-        // Your solution here
-        return false;
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String s = sc.nextLine().trim();
-        System.out.println(new Solution().isValid(s) ? "true" : "false");
-    }
-}""",
-        "starter_code_javascript": """const s = require('fs').readFileSync('/dev/stdin','utf8').trim();
-
-/**
- * @param {string} s
- * @return {boolean}
- */
-function isValid(s) {
-    // Your solution here
-}
-
-console.log(isValid(s) ? "true" : "false");""",
+        "function_signature": {
+            "name": "isValid",
+            "params": [{"name": "s", "type": "string"}],
+            "return_type": "bool",
+        },
         "topics": ["String", "Stack"],
         "companies": ["Amazon", "Bloomberg", "Facebook"],
         "test_cases": [
             {
-                "input_data": "()",
+                "input_data": '{"s": "()"}',
                 "expected_output": "true",
                 "is_sample": True,
                 "explanation": "",
             },
             {
-                "input_data": "()[]{}",
+                "input_data": '{"s": "()[]{}"}',
                 "expected_output": "true",
                 "is_sample": True,
                 "explanation": "",
             },
             {
-                "input_data": "(]",
+                "input_data": '{"s": "(]"}',
                 "expected_output": "false",
                 "is_sample": True,
                 "explanation": "",
             },
-            {"input_data": "([)]", "expected_output": "false", "is_sample": False},
-            {"input_data": "{[]}", "expected_output": "true", "is_sample": False},
+            {"input_data": '{"s": "([)]"}', "expected_output": "false", "is_sample": False},
+            {"input_data": '{"s": "{[]}"}', "expected_output": "true", "is_sample": False},
         ],
         "solutions": [
             {
@@ -376,90 +250,32 @@ Output: -1
         "time_complexity_worst": "O(log n)",
         "space_complexity": "O(1)",
         "complexity_notes_md": "Halves the search space each iteration → O(log n). Iterative approach uses O(1) space.",
-        "starter_code_python": """import sys
-import json
-from typing import List
-
-def search(nums: List[int], target: int) -> int:
-    # Your solution here
-    pass
-
-if __name__ == "__main__":
-    data = sys.stdin.read().strip().splitlines()
-    nums = json.loads(data[0])
-    target = int(data[1])
-    print(search(nums, target))""",
-        "starter_code_cpp": """#include <bits/stdc++.h>
-using namespace std;
-
-int search(vector<int>& nums, int target) {
-    // Your solution here
-    return -1;
-}
-
-int main() {
-    string line;
-    getline(cin, line);
-    vector<int> nums;
-    line = line.substr(1, line.size()-2);
-    stringstream ss(line);
-    string tok;
-    while (getline(ss, tok, ',')) nums.push_back(stoi(tok));
-    int target;
-    cin >> target;
-    cout << search(nums, target) << endl;
-    return 0;
-}""",
-        "starter_code_java": """import java.util.*;
-
-public class Solution {
-    public int search(int[] nums, int target) {
-        // Your solution here
-        return -1;
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().replaceAll("[\[\]\s]", "");
-        String[] parts = line.split(",");
-        int[] nums = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
-        int target = Integer.parseInt(sc.nextLine().trim());
-        System.out.println(new Solution().search(nums, target));
-    }
-}""",
-        "starter_code_javascript": """const lines = require('fs').readFileSync('/dev/stdin','utf8').trim().split('\n');
-const nums = JSON.parse(lines[0]);
-const target = parseInt(lines[1]);
-
-/**
- * @param {number[]} nums
- * @param {number} target
- * @return {number}
- */
-function search(nums, target) {
-    // Your solution here
-}
-
-console.log(search(nums, target));""",
+        "function_signature": {
+            "name": "search",
+            "params": [
+                {"name": "nums", "type": "int[]"},
+                {"name": "target", "type": "int"},
+            ],
+            "return_type": "int",
+        },
         "topics": ["Array", "Binary Search"],
         "companies": ["Google", "Apple", "LinkedIn"],
         "test_cases": [
             {
-                "input_data": "[-1,0,3,5,9,12]\n9",
+                "input_data": '{"nums": [-1, 0, 3, 5, 9, 12], "target": 9}',
                 "expected_output": "4",
                 "is_sample": True,
                 "explanation": "9 exists at index 4",
             },
             {
-                "input_data": "[-1,0,3,5,9,12]\n2",
+                "input_data": '{"nums": [-1, 0, 3, 5, 9, 12], "target": 2}',
                 "expected_output": "-1",
                 "is_sample": True,
                 "explanation": "2 does not exist",
             },
-            {"input_data": "[5]\n5", "expected_output": "0", "is_sample": False},
+            {"input_data": '{"nums": [5], "target": 5}', "expected_output": "0", "is_sample": False},
             {
-                "input_data": "[1,2,3,4,5,6,7,8,9,10]\n7",
+                "input_data": '{"nums": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "target": 7}',
                 "expected_output": "6",
                 "is_sample": False,
             },
@@ -520,77 +336,34 @@ Explanation: "wke" has length 3.
         "time_complexity_worst": "O(n)",
         "space_complexity": "O(min(m,n))",
         "complexity_notes_md": "O(n) single pass. Space is O(min(m,n)) where m is the charset size (at most 128 for ASCII).",
-        "starter_code_python": """import sys
-
-def lengthOfLongestSubstring(s: str) -> int:
-    # Your solution here
-    pass
-
-if __name__ == "__main__":
-    s = sys.stdin.read().strip()
-    print(lengthOfLongestSubstring(s))""",
-        "starter_code_cpp": """#include <bits/stdc++.h>
-using namespace std;
-
-int lengthOfLongestSubstring(string s) {
-    // Your solution here
-    return 0;
-}
-
-int main() {
-    string s;
-    getline(cin, s);
-    cout << lengthOfLongestSubstring(s) << endl;
-    return 0;
-}""",
-        "starter_code_java": """import java.util.*;
-
-public class Solution {
-    public int lengthOfLongestSubstring(String s) {
-        // Your solution here
-        return 0;
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String s = sc.hasNextLine() ? sc.nextLine() : "";
-        System.out.println(new Solution().lengthOfLongestSubstring(s));
-    }
-}""",
-        "starter_code_javascript": """const s = require('fs').readFileSync('/dev/stdin','utf8').trim();
-
-/**
- * @param {string} s
- * @return {number}
- */
-function lengthOfLongestSubstring(s) {
-    // Your solution here
-}
-
-console.log(lengthOfLongestSubstring(s));""",
+        "function_signature": {
+            "name": "lengthOfLongestSubstring",
+            "params": [{"name": "s", "type": "string"}],
+            "return_type": "int",
+        },
         "topics": ["Hash Table", "String", "Sliding Window"],
         "companies": ["Amazon", "Bloomberg", "Adobe"],
         "test_cases": [
             {
-                "input_data": "abcabcbb",
+                "input_data": '{"s": "abcabcbb"}',
                 "expected_output": "3",
                 "is_sample": True,
                 "explanation": "abc",
             },
             {
-                "input_data": "bbbbb",
+                "input_data": '{"s": "bbbbb"}',
                 "expected_output": "1",
                 "is_sample": True,
                 "explanation": "b",
             },
             {
-                "input_data": "pwwkew",
+                "input_data": '{"s": "pwwkew"}',
                 "expected_output": "3",
                 "is_sample": True,
                 "explanation": "wke",
             },
-            {"input_data": "", "expected_output": "0", "is_sample": False},
-            {"input_data": "aab", "expected_output": "2", "is_sample": False},
+            {"input_data": '{"s": ""}', "expected_output": "0", "is_sample": False},
+            {"input_data": '{"s": "aab"}', "expected_output": "2", "is_sample": False},
         ],
         "solutions": [
             {
@@ -642,72 +415,29 @@ Explanation: 1+1+1, 1+2, 2+1
         "time_complexity_worst": "O(n)",
         "space_complexity": "O(1)",
         "complexity_notes_md": "Linear time, constant space by only storing the previous two Fibonacci values.",
-        "starter_code_python": """import sys
-
-def climbStairs(n: int) -> int:
-    # Your solution here
-    pass
-
-if __name__ == "__main__":
-    n = int(sys.stdin.read().strip())
-    print(climbStairs(n))""",
-        "starter_code_cpp": """#include <bits/stdc++.h>
-using namespace std;
-
-int climbStairs(int n) {
-    // Your solution here
-    return 0;
-}
-
-int main() {
-    int n;
-    cin >> n;
-    cout << climbStairs(n) << endl;
-    return 0;
-}""",
-        "starter_code_java": """import java.util.*;
-
-public class Solution {
-    public int climbStairs(int n) {
-        // Your solution here
-        return 0;
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = Integer.parseInt(sc.nextLine().trim());
-        System.out.println(new Solution().climbStairs(n));
-    }
-}""",
-        "starter_code_javascript": """const n = parseInt(require('fs').readFileSync('/dev/stdin','utf8').trim());
-
-/**
- * @param {number} n
- * @return {number}
- */
-function climbStairs(n) {
-    // Your solution here
-}
-
-console.log(climbStairs(n));""",
+        "function_signature": {
+            "name": "climbStairs",
+            "params": [{"name": "n", "type": "int"}],
+            "return_type": "int",
+        },
         "topics": ["Math", "Dynamic Programming", "Memoization"],
         "companies": ["Amazon", "Apple", "Google"],
         "test_cases": [
             {
-                "input_data": "2",
+                "input_data": '{"n": 2}',
                 "expected_output": "2",
                 "is_sample": True,
                 "explanation": "1+1 or 2",
             },
             {
-                "input_data": "3",
+                "input_data": '{"n": 3}',
                 "expected_output": "3",
                 "is_sample": True,
                 "explanation": "1+1+1, 1+2, 2+1",
             },
-            {"input_data": "1", "expected_output": "1", "is_sample": False},
-            {"input_data": "10", "expected_output": "89", "is_sample": False},
-            {"input_data": "45", "expected_output": "1836311903", "is_sample": False},
+            {"input_data": '{"n": 1}', "expected_output": "1", "is_sample": False},
+            {"input_data": '{"n": 10}', "expected_output": "89", "is_sample": False},
+            {"input_data": '{"n": 45}', "expected_output": "1836311903", "is_sample": False},
         ],
         "solutions": [
             {
@@ -726,9 +456,38 @@ console.log(climbStairs(n));""",
 
 
 class Command(BaseCommand):
-    help = "Seed the database with sample problems, contests, ads, and test users"
+    help = (
+        "Seed the database with sample problems, contests, ads, and test users "
+        "(DEVELOPMENT ONLY: creates accounts with well-known passwords)"
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Allow seeding when DEBUG is False (never use against production).",
+        )
+        parser.add_argument(
+            "--refresh-starters",
+            action="store_true",
+            help="Refresh the signature, generated starter code and test-case inputs "
+                 "of already-seeded problems (function-only judge migration).",
+        )
 
     def handle(self, *args, **options):
+        from django.conf import settings
+        from django.core.management.base import CommandError
+
+        if not settings.DEBUG and not options["force"]:
+            raise CommandError(
+                "Refusing to seed with DEBUG=False: seed users have public passwords. "
+                "Pass --force only for disposable non-production databases."
+            )
+
+        if options["refresh_starters"]:
+            self._refresh_starters()
+            return
+
         self.stdout.write(
             self.style.MIGRATE_HEADING("\n🌱 Seeding CodeQuest database...\n")
         )
@@ -736,6 +495,8 @@ class Command(BaseCommand):
         self._create_sections()
         self._create_tags()
         self._create_problems()
+        self._create_learning()
+        self._create_daily_problem()
         self._create_contests()
         self._create_ads()
         self._create_feature_flags()
@@ -776,13 +537,73 @@ class Command(BaseCommand):
         for data in users_data:
             expires = data.pop("plan_expires_at", None)
             if not User.objects.filter(email=data["email"]).exists():
-                user = User.objects.create_user(**data)
+                if data.get("role") == "ADMIN":
+                    # Staff + superuser so the account can also use /django-admin/.
+                    user = User.objects.create_superuser(**data)
+                else:
+                    user = User.objects.create_user(**data)
                 if expires:
                     user.plan_expires_at = expires
                     user.save()
                 self.stdout.write(f"  👤 Created user: {data['email']}")
             else:
                 self.stdout.write(f"  👤 Exists: {data['email']}")
+
+    def _refresh_starters(self):
+        """Bring already-seeded problems onto the function-only judge.
+
+        Rewrites the signature, compare mode, generated starter code and the
+        sample/hidden test-case inputs of the five seeded problems. Other
+        problems and user submissions are untouched.
+        """
+        from apps.problems import codegen
+        from apps.problems.models import Problem
+        from apps.problems.seed_extras import EXTRA_PROBLEMS
+
+        updated = 0
+        for p_data in [*PROBLEMS, *EXTRA_PROBLEMS]:
+            problem = Problem.objects.filter(slug=p_data["slug"]).first()
+            if problem is None:
+                continue
+
+            signature = p_data.get("function_signature")
+            problem.function_signature = signature
+            problem.compare_mode = p_data.get("compare_mode", "EXACT")
+            problem.float_tolerance = p_data.get("float_tolerance", 1e-5)
+
+            fields = ["function_signature", "compare_mode", "float_tolerance"]
+            if signature:
+                for field, value in codegen.all_starters(signature).items():
+                    setattr(problem, field, value)
+                    fields.append(field)
+            problem.save(update_fields=fields + ["updated_at"])
+
+            self._sync_test_cases(problem, p_data.get("test_cases", []))
+            updated += 1
+            self.stdout.write(f"  🔁 Function mode refreshed: {problem.slug}")
+
+        self.stdout.write(self.style.SUCCESS(f"\n✅ Refreshed {updated} seeded problem(s)\n"))
+
+    def _sync_test_cases(self, problem, test_cases):
+        """Update seeded test cases in place (same order_index) or add missing ones."""
+        from apps.problems.models import TestCase
+
+        existing = list(problem.test_cases.order_by("order_index", "id"))
+        for index, tc_data in enumerate(test_cases):
+            values = {
+                "input_data": tc_data["input_data"],
+                "expected_output": tc_data["expected_output"],
+                "is_sample": tc_data.get("is_sample", False),
+                "is_hidden": not tc_data.get("is_sample", False),
+                "explanation": tc_data.get("explanation", ""),
+            }
+            if index < len(existing):
+                test_case = existing[index]
+                for field, value in values.items():
+                    setattr(test_case, field, value)
+                test_case.save(update_fields=list(values))
+            else:
+                TestCase.objects.create(problem=problem, order_index=index, **values)
 
     def _create_sections(self):
         from apps.problems.models import Section
@@ -796,6 +617,10 @@ class Command(BaseCommand):
             ("ARRAY", "Array", "📊", 6),
             ("GRAPH", "Graph", "🕸️", 7),
             ("TREE", "Tree", "🌳", 8),
+            ("STRING", "String", "🔤", 9),
+            ("TWO_POINTERS", "Two Pointers", "👉", 10),
+            ("BIT_MANIPULATION", "Bit Manipulation", "🔧", 11),
+            ("MATH", "Math & Geometry", "📐", 12),
         ]
         for name, display, icon, order in sections:
             Section.objects.get_or_create(
@@ -803,6 +628,36 @@ class Command(BaseCommand):
                 defaults={"display_name": display, "icon": icon, "order_index": order},
             )
         self.stdout.write(f"  📁 Sections: {len(sections)} created/verified")
+        self._link_section_prerequisites()
+
+    # Study order shown on /roadmap: each topic builds on the ones listed.
+    SECTION_PREREQUISITES = {
+        "HASH_MAP": ["ARRAY"],
+        "TWO_POINTERS": ["ARRAY"],
+        "STRING": ["ARRAY"],
+        "MATH": ["ARRAY"],
+        "SLIDING_WINDOW": ["HASH_MAP", "TWO_POINTERS"],
+        "STACK": ["STRING"],
+        "BINARY_SEARCH": ["TWO_POINTERS"],
+        "BIT_MANIPULATION": ["MATH"],
+        "TREE": ["STACK", "BINARY_SEARCH"],
+        "GRAPH": ["TREE"],
+        "DP": ["TREE", "HASH_MAP"],
+    }
+
+    def _link_section_prerequisites(self):
+        """Fill in roadmap edges for sections that have none (never overwrites admin edits)."""
+        from apps.problems.models import Section
+
+        by_name = {section.name: section for section in Section.objects.all()}
+        linked = 0
+        for name, requires in self.SECTION_PREREQUISITES.items():
+            section = by_name.get(name)
+            if section is None or section.prerequisites.exists():
+                continue
+            section.prerequisites.set([by_name[r] for r in requires if r in by_name])
+            linked += 1
+        self.stdout.write(f"  🗺️  Roadmap: prerequisites set for {linked} section(s)")
 
     def _create_tags(self):
         from apps.problems.models import Tag
@@ -822,6 +677,9 @@ class Command(BaseCommand):
             "Tree",
             "Graph",
             "Greedy",
+            "Matrix",
+            "Prefix Sum",
+            "Depth-First Search",
         ]
         companies = [
             "Google",
@@ -843,14 +701,18 @@ class Command(BaseCommand):
         )
 
     def _create_problems(self):
+        from apps.problems import codegen
         from apps.problems.models import Problem, Section, Tag, TestCase, Solution
+        from apps.problems.seed_extras import EXTRA_PROBLEMS
 
-        for p_data in PROBLEMS:
+        for p_data in [*PROBLEMS, *EXTRA_PROBLEMS]:
             if Problem.objects.filter(slug=p_data["slug"]).exists():
                 self.stdout.write(f"  📝 Exists: {p_data['slug']}")
                 continue
 
             section = Section.objects.filter(name=p_data["section"]).first()
+            signature = p_data.get("function_signature")
+            starters = codegen.all_starters(signature) if signature else {}
             problem = Problem.objects.create(
                 slug=p_data["slug"],
                 title=p_data["title"],
@@ -864,10 +726,10 @@ class Command(BaseCommand):
                 time_complexity_worst=p_data["time_complexity_worst"],
                 space_complexity=p_data["space_complexity"],
                 complexity_notes_md=p_data["complexity_notes_md"],
-                starter_code_python=p_data.get("starter_code_python", ""),
-                starter_code_cpp=p_data.get("starter_code_cpp", ""),
-                starter_code_java=p_data.get("starter_code_java", ""),
-                starter_code_javascript=p_data.get("starter_code_javascript", ""),
+                function_signature=signature,
+                compare_mode=p_data.get("compare_mode", "EXACT"),
+                float_tolerance=p_data.get("float_tolerance", 1e-5),
+                **starters,
                 is_published=True,
             )
 
@@ -911,6 +773,108 @@ class Command(BaseCommand):
                 )
 
             self.stdout.write(f"  📝 Created: {problem.title}")
+
+    def _create_learning(self):
+        from apps.courses.models import Category, Chapter, Course, Lesson
+        from apps.problems.models import Problem, ProblemList, ProblemListItem
+        from apps.problems.seed_learning import COURSE_CATEGORIES, COURSES, PRACTICE_LISTS
+
+        for data in COURSE_CATEGORIES:
+            Category.objects.update_or_create(
+                name=data["name"],
+                defaults={
+                    "description": data.get("description", ""),
+                    "icon": data.get("icon", ""),
+                    "order_index": data.get("order_index", 0),
+                },
+            )
+
+        for data in PRACTICE_LISTS:
+            problem_list, _ = ProblemList.objects.update_or_create(
+                slug=data["slug"],
+                defaults={
+                    "title": data["title"],
+                    "description_md": data.get("description_md", ""),
+                    "order_index": data.get("order_index", 0),
+                    "is_published": True,
+                },
+            )
+            by_slug = {
+                problem.slug: problem
+                for problem in Problem.objects.filter(slug__in=data["problems"])
+            }
+            problem_list.items.all().delete()
+            ProblemListItem.objects.bulk_create([
+                ProblemListItem(
+                    problem_list=problem_list,
+                    problem=by_slug[slug],
+                    order_index=index,
+                )
+                for index, slug in enumerate(data["problems"])
+                if slug in by_slug
+            ])
+
+        for data in COURSES:
+            category = Category.objects.filter(name=data.get("category")).first()
+            course, _ = Course.objects.update_or_create(
+                slug=data["slug"],
+                defaults={
+                    "category": category,
+                    "title": data["title"],
+                    "subtitle": data.get("subtitle", ""),
+                    "description_md": data.get("description_md", ""),
+                    "difficulty": data.get("difficulty", "BEGINNER"),
+                    "cover_icon": data.get("cover_icon", ""),
+                    "estimated_minutes": data.get("estimated_minutes", 0),
+                    "is_published": True,
+                    "order_index": data.get("order_index", 0),
+                },
+            )
+            for chapter_data in data.get("chapters", []):
+                chapter, _ = Chapter.objects.update_or_create(
+                    course=course,
+                    title=chapter_data["title"],
+                    defaults={
+                        "description_md": chapter_data.get("description_md", ""),
+                        "order_index": chapter_data.get("order_index", 0),
+                    },
+                )
+                for lesson_data in chapter_data.get("lessons", []):
+                    Lesson.objects.update_or_create(
+                        slug=lesson_data["slug"],
+                        defaults={
+                            "chapter": chapter,
+                            "title": lesson_data["title"],
+                            "content_md": lesson_data.get("content_md", ""),
+                            "problem": Problem.objects.filter(
+                                slug=lesson_data.get("problem")
+                            ).first(),
+                            "estimated_minutes": lesson_data.get("estimated_minutes", 10),
+                            "is_published": True,
+                            "order_index": lesson_data.get("order_index", 0),
+                        },
+                    )
+
+        self.stdout.write(
+            f"  📚 Practice lists: {len(PRACTICE_LISTS)}, courses: {len(COURSES)}"
+        )
+
+    def _create_daily_problem(self):
+        from apps.problems.models import DailyProblem, Problem
+
+        today = timezone.now().date()
+        if DailyProblem.objects.filter(date=today).exists():
+            self.stdout.write("  📅 Daily problem: exists")
+            return
+        problem = (
+            Problem.objects.filter(slug="two-sum", is_published=True).first()
+            or Problem.objects.filter(is_published=True).order_by("number").first()
+        )
+        if problem:
+            DailyProblem.objects.create(date=today, problem=problem)
+            self.stdout.write(f"  📅 Daily problem: {problem.slug}")
+        else:
+            self.stdout.write("  📅 Daily problem: skipped (no published problems)")
 
     def _create_contests(self):
         from apps.contests.models import Contest, ContestProblem
@@ -1010,17 +974,9 @@ class Command(BaseCommand):
     def _create_feature_flags(self):
         from apps.content.models import FeatureFlag
 
-        flags = [
-            ("ai_hints_enabled", True, "Enable AI hint system"),
-            ("ai_chat_enabled", True, "Enable AI problem chat"),
-            ("contests_enabled", True, "Enable contests feature"),
-            (
-                "show_complexity_before_solve",
-                False,
-                "Show complexity to all users before solving",
-            ),
-            ("maintenance_mode", False, "Put site in read-only maintenance mode"),
-        ]
+        from apps.core.features import FEATURES
+
+        flags = [(f.key, f.default_on, f.label) for f in FEATURES if f.implemented]
         for key, value, desc in flags:
             FeatureFlag.objects.get_or_create(
                 key=key, defaults={"value": value, "description": desc}

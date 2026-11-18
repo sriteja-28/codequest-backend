@@ -10,6 +10,39 @@ from .models import DiscussionThread, DiscussionComment, ThreadUpvote, CommentUp
 from apps.problems.models import Problem
 
 
+class AdminThreadSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.username", read_only=True)
+    problem_title = serializers.CharField(source="problem.title", read_only=True)
+
+    class Meta:
+        model = DiscussionThread
+        fields = ["id", "title", "content", "problem", "problem_title", "author_name", "is_anonymous", "is_pinned", "is_locked", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class AdminCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.username", read_only=True)
+    thread_title = serializers.CharField(source="thread.title", read_only=True)
+
+    class Meta:
+        model = DiscussionComment
+        fields = ["id", "thread", "thread_title", "author_name", "content", "parent", "is_anonymous", "is_hidden", "is_flagged", "is_accepted_answer", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate(self, data):
+        thread = data.get("thread", getattr(self.instance, "thread", None))
+        parent = data.get("parent", getattr(self.instance, "parent", None))
+        if parent and (parent.thread_id != thread.pk or parent.pk == getattr(self.instance, "pk", None)):
+            raise serializers.ValidationError({"parent": "Choose another comment in the same thread."})
+        if self.instance and "thread" in data and thread.pk != self.instance.thread_id:
+            raise serializers.ValidationError({"thread": "An existing comment cannot be moved to another thread."})
+        if self.instance and "parent" in data and getattr(parent, "pk", None) != self.instance.parent_id:
+            raise serializers.ValidationError({"parent": "An existing reply cannot be moved."})
+        if data.get("is_hidden", getattr(self.instance, "is_hidden", False)):
+            data["is_flagged"] = False
+        return data
+
+
 class DiscussionAuthorSerializer(serializers.Serializer):
     """
     Author info for discussions.
@@ -170,10 +203,6 @@ class ThreadListSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.upvotes.filter(user=request.user).exists()
-    
-    def to_representation(self, instance):
-        print("DEBUG:", instance.__dict__)
-        return super().to_representation(instance)
 
 
 class ThreadDetailSerializer(ThreadListSerializer):
@@ -189,15 +218,26 @@ class ThreadDetailSerializer(ThreadListSerializer):
         return DiscussionCommentSerializer(comments, many=True, context=self.context).data
 
 
+MAX_THREAD_CHARS = 20_000
+MAX_COMMENT_CHARS = 10_000
+
+
 class ThreadCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new threads."""
     is_anonymous = serializers.BooleanField(default=False)
+    title = serializers.CharField(max_length=200, trim_whitespace=True)
+    content = serializers.CharField(max_length=MAX_THREAD_CHARS, trim_whitespace=False)
 
     class Meta:
         model = DiscussionThread
-        # fields = ['problem', 'title', 'content', 'is_anonymous']
-        # removing problem because view sets it
-        fields = ['title', 'content', 'is_anonymous']
+        # problem and author are set by the view
+        fields = ['id', 'title', 'content', 'is_anonymous']
+        read_only_fields = ['id']
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Content must not be empty.")
+        return value
 
     def create(self, validated_data):
         """Set author from request user."""
@@ -207,13 +247,24 @@ class ThreadCreateSerializer(serializers.ModelSerializer):
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new comments."""
-    body_md = serializers.CharField(source='content', write_only=True)
+    body_md = serializers.CharField(source='content', max_length=MAX_COMMENT_CHARS, trim_whitespace=False)
     is_anonymous = serializers.BooleanField(default=False)
 
     class Meta:
         model = DiscussionComment
-        # fields = ['thread', 'parent', 'body_md', 'is_anonymous']
-        fields = ['parent', 'body_md', 'is_anonymous']
+        fields = ['id', 'parent', 'body_md', 'is_anonymous']
+        read_only_fields = ['id']
+
+    def validate_body_md(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Comment must not be empty.")
+        return value
+
+    def validate_parent(self, parent):
+        thread = self.context.get("thread")
+        if parent is not None and thread is not None and parent.thread_id != thread.id:
+            raise serializers.ValidationError("Parent comment belongs to a different thread.")
+        return parent
 
     def create(self, validated_data):
         """Set author from request user."""

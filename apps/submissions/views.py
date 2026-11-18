@@ -1,95 +1,157 @@
+import hmac
 import logging
+
+from django.conf import settings
+from django.db import transaction
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.users.models import UserSolvedProblem
+from config.pagination import LargePagination
+
 from .models import Submission
+from .publisher import publish_submission_job
+from .queue import can_accept_submission, get_queue_depth
 from .serializers import (
-    SubmissionSerializer,
+    JudgeCallbackSerializer,
+    RunCodeSerializer,
     SubmissionCreateSerializer,
     SubmissionListSerializer,
+    SubmissionSerializer,
 )
-from .publisher import publish_submission_job
-
-
-from rest_framework.permissions import IsAuthenticated
-from apps.problems.models import Problem
-
-from .throttles import RunThrottle, SubmitThrottle, BurstThrottle
-from .queue import can_accept_submission, get_queue_depth
-
+from .services import ACTIVE_STATUSES, InvalidCallback, apply_judge_callback, reap_stale_submissions
+from .throttles import BurstThrottle, RunThrottle, SubmitThrottle
 
 logger = logging.getLogger(__name__)
+
+PUBLISH_FAILED_MESSAGE = "The judge queue is unavailable right now. Please try again shortly."
+
+
+MAINTENANCE_MESSAGE = "CodeQuest is under maintenance: running and submitting code is paused for now."
+
+
+def _enqueue(request, serializer, *, sample_run: bool):
+    """Shared create + publish flow for Run and Submit."""
+    from apps.core.site import maintenance
+
+    state = maintenance()
+    if state["enabled"] and not request.user.is_admin:
+        message = state["message"] or MAINTENANCE_MESSAGE
+        return None, Response({"detail": message, "code": "maintenance"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    allowed, reason = can_accept_submission(request.user)
+    if not allowed:
+        return None, Response(
+            {"detail": reason, "error": reason, "queue_depth": get_queue_depth()},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    data = serializer.validated_data
+    with transaction.atomic():
+        contest = data.get("contest")
+        if contest:
+            from apps.contests.access import submission_block_reason
+            from apps.contests.models import Contest
+            from apps.problems.models import Problem
+            from apps.users.models import User
+
+            # Same lock order as verdict processing, before the FK insert.
+            # Serializing against finalization also closes the validation/create race.
+            Problem.objects.select_for_update().get(pk=data["problem"].pk)
+            User.objects.select_for_update().get(pk=request.user.pk)
+            contest = Contest.objects.select_for_update().get(pk=contest.pk)
+            reason = submission_block_reason(contest, request.user)
+            if reason:
+                return None, Response({"detail": reason}, status=status.HTTP_403_FORBIDDEN)
+        submission = Submission.objects.create(
+            user=request.user,
+            problem=data["problem"],
+            language=data["language"],
+            code=data["code"],
+            contest=contest,
+            is_sample_run=sample_run,
+            status=Submission.Status.QUEUED,
+        )
+        if contest and submission.created_at > contest.end_at:
+            submission.delete()
+            return None, Response({"detail": "This contest has ended."}, status=status.HTTP_403_FORBIDDEN)
+
+    # The row is committed before publishing, so the worker can
+    # never receive a job for a submission that does not exist yet.
+    published = publish_submission_job(
+        submission_id=str(submission.id),
+        problem_id=submission.problem_id,
+        language=submission.language,
+        code=submission.code,
+        run_sample=sample_run,
+    )
+    if not published:
+        submission.status = Submission.Status.INTERNAL_ERROR
+        submission.error_message = PUBLISH_FAILED_MESSAGE
+        submission.save(update_fields=["status", "error_message"])
+        return None, Response(
+            {"detail": PUBLISH_FAILED_MESSAGE, "error": PUBLISH_FAILED_MESSAGE},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    logger.info(
+        "%s %s by %s (plan=%s, problem=%s, lang=%s)",
+        "Run" if sample_run else "Submission", submission.id, request.user.username,
+        request.user.plan, submission.problem_id, submission.language,
+    )
+    return submission, None
 
 
 class SubmissionCreateView(APIView):
     """
     POST /api/submissions/
-    Create a submission, enqueue it to RabbitMQ, return the submission ID.
+    Body: {problem_slug, language, code, contest?}
+    Validates, stores the submission (QUEUED) and enqueues it for the judge.
+    Problem counters are updated when the verdict arrives (services.finalize_submission).
     """
 
     permission_classes = [permissions.IsAuthenticated]
-    throttle_classes = [SubmitThrottle, BurstThrottle]  # Rate limiting
+    throttle_classes = [SubmitThrottle, BurstThrottle]
 
     def post(self, request):
-
-        # Circuit breaker - check queue health
-        allowed, reason = can_accept_submission(request.user)
-        if not allowed:
-            queue_depth = get_queue_depth()
-            return Response(
-                {
-                    "error": reason,
-                    "queue_depth": queue_depth,
-                },
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        # submission logic
-        serializer = SubmissionCreateSerializer(data=request.data)
+        serializer = SubmissionCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-
-        submission = Submission.objects.create(
-            user=request.user,
-            status=Submission.Status.QUEUED,
-            **serializer.validated_data,
-        )
-
-        # Update problem submission counter
-        submission.problem.total_submissions += 1
-        submission.problem.save(update_fields=["total_submissions"])
-
-        # Enqueue to RabbitMQ
-        published = publish_submission_job(
-            submission_id=str(submission.id),
-            problem_id=submission.problem.id,
-            language=submission.language,
-            code=submission.code,
-        )
-
-        if not published:
-            submission.status = Submission.Status.INTERNAL_ERROR
-            submission.save(update_fields=["status"])
-            return Response(
-                {"detail": "Failed to enqueue submission. Please try again."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        logger.info(
-            f"Submission {submission.id} by {request.user.username} (plan: {request.user.plan})"
-        )
-
+        submission, error = _enqueue(request, serializer, sample_run=False)
+        if error is not None:
+            return error
         return Response(
             {"submission_id": str(submission.id), "status": submission.status},
             status=status.HTTP_201_CREATED,
         )
 
 
+class RunCodeView(APIView):
+    """
+    POST /api/submissions/run-code/
+    Body: {problem_slug, language, code}
+    Runs the code against the problem's *sample* test cases only. The result is
+    stored as a submission with is_sample_run=True (hidden from history and
+    never counted toward stats, streaks or contests).
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [RunThrottle, BurstThrottle]
+
+    def post(self, request):
+        serializer = RunCodeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        submission, error = _enqueue(request, serializer, sample_run=True)
+        if error is not None:
+            return error
+        return Response({"submission_id": str(submission.id), "status": submission.status})
+
+
 class SubmissionDetailView(generics.RetrieveAPIView):
     """
     GET /api/submissions/{id}/
     Returns submission status and per-testcase results.
-    Only the submitting user or an admin can view.
+    Only the submitting user or an admin can view. Hidden test data is
+    withheld from non-admins.
     """
 
     serializer_class = SubmissionSerializer
@@ -98,203 +160,115 @@ class SubmissionDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        qs = Submission.objects.select_related("problem", "user").prefetch_related("results__test_case")
         if user.is_admin:
-            return Submission.objects.all()
-        return Submission.objects.filter(user=user)
+            return qs
+        return qs.filter(user=user)
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["reveal_hidden"] = bool(self.request.user.is_admin)
+        return ctx
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status in ACTIVE_STATUSES and reap_stale_submissions(submission_ids=[instance.id]):
+            instance = self.get_object()
+        return Response(self.get_serializer(instance).data)
 
 
 class UserSubmissionListView(generics.ListAPIView):
     """
-    GET /api/submissions/          — all submissions for current user
-    GET /api/problems/{slug}/submissions/ — filtered to a problem
+    GET /api/submissions/history/[?problem_slug=...]
+    The current user's judged submissions (sample runs excluded), newest first.
+    Supports ?page_size= up to 1000 for activity charts.
     """
 
     serializer_class = SubmissionListSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = LargePagination
 
     def get_queryset(self):
         qs = Submission.objects.filter(user=self.request.user, is_sample_run=False)
-        # slug = self.kwargs.get("problem_slug")
-        slug = self.kwargs.get("problem_slug") or self.request.query_params.get(
-            "problem_slug"
-        )
+        slug = self.kwargs.get("problem_slug") or self.request.query_params.get("problem_slug")
         if slug:
             qs = qs.filter(problem__slug=slug)
-        return qs.select_related("problem")
+        return qs.select_related("problem").order_by("-created_at")
 
 
-class JudgeCallbackView(APIView):
+def _judge_key_valid(request) -> bool:
+    supplied = request.headers.get("X-Judge-Api-Key", "")
+    expected = settings.JUDGE_INTERNAL_API_KEY or ""
+    return bool(supplied) and bool(expected) and hmac.compare_digest(supplied.encode(), expected.encode())
+
+
+class _JudgeInternalView(APIView):
+    """Base for judge-only endpoints: shared-key auth, no JWT, no throttling
+    (all judge traffic originates from a few worker IPs)."""
+
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = []
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not _judge_key_valid(request):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("Forbidden.")
+
+
+class JudgeCallbackView(_JudgeInternalView):
     """
     POST /api/submissions/{id}/judge-callback/
     Internal endpoint called by the judge worker to write back results.
-    Protected by a shared API key (not JWT).
+    Idempotent: duplicate or out-of-order callbacks return 200 with applied=false.
     """
-
-    permission_classes = [permissions.AllowAny]  # Auth via API key header
 
     def post(self, request, submission_id):
-        from django.conf import settings
-
-        key = request.headers.get("X-Judge-Api-Key", "")
-        if key != settings.JUDGE_INTERNAL_API_KEY:
-            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
-
+        serializer = JudgeCallbackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
-            submission = Submission.objects.get(id=submission_id)
+            outcome = apply_judge_callback(submission_id, serializer.validated_data)
         except Submission.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        data = request.data
-        submission.status = data.get("status", Submission.Status.INTERNAL_ERROR)
-        submission.runtime_ms = data.get("runtime_ms")
-        submission.memory_kb = data.get("memory_kb")
-        submission.error_message = data.get("error_message", "")
-
-        from django.utils import timezone
-
-        submission.judge_finished_at = timezone.now()
-        submission.save()
-
-        # Write per-testcase results
-        from .models import SubmissionResult
-        from apps.problems.models import TestCase
-
-        for result_data in data.get("results", []):
-            try:
-                tc = TestCase.objects.get(id=result_data["test_case_id"])
-                SubmissionResult.objects.update_or_create(
-                    submission=submission,
-                    test_case=tc,
-                    defaults={
-                        "status": result_data.get("status", "WRONG_ANSWER"),
-                        "actual_output": result_data.get("actual_output", ""),
-                        "expected_output": tc.expected_output,
-                        "error_output": result_data.get("error_output", ""),
-                        "time_ms": result_data.get("time_ms"),
-                        "memory_kb": result_data.get("memory_kb"),
-                    },
-                )
-            except TestCase.DoesNotExist:
-                logger.warning(f"TestCase {result_data.get('test_case_id')} not found")
-
-        # Update problem acceptance counter and user solved tracking
-        # if submission.status == Submission.Status.ACCEPTED:
-        # if (
-        #     submission.status == Submission.Status.ACCEPTED
-        #     and not submission.is_sample_run
-        # ):
-        #     problem = submission.problem
-        #     problem.accepted_submissions += 1
-        #     problem.save(update_fields=["accepted_submissions"])
-
-        #     UserSolvedProblem.objects.get_or_create(
-        #         user=submission.user,
-        #         problem=problem,
-        #         defaults={
-        #             "best_runtime_ms": submission.runtime_ms,
-        #             "best_memory_kb": submission.memory_kb,
-        #         },
-        #     )
-        #     # Update user solved count
-        #     submission.user.problems_solved = UserSolvedProblem.objects.filter(
-        #         user=submission.user
-        #     ).count()
-        #     submission.user.save(update_fields=["problems_solved"])
+        except InvalidCallback as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, **outcome})
 
 
-        if (
-            submission.status == Submission.Status.ACCEPTED
-            and not submission.is_sample_run
-        ):
-            problem = submission.problem
-
-            obj, created = UserSolvedProblem.objects.get_or_create(
-                user=submission.user,
-                problem=problem,
-                defaults={
-                    "best_runtime_ms": submission.runtime_ms,
-                    "best_memory_kb": submission.memory_kb,
-                },
-            )
-
-            if created:
-                submission.user.problems_solved = UserSolvedProblem.objects.filter(
-                    user=submission.user
-                ).count()
-
-                submission.user.update_streak()
-
-        # Broadcast via Channels
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-
-        channel_layer = get_channel_layer()
-        group_name = f"submission_{submission_id}"
-        try:
-            async_to_sync(channel_layer.group_send)(
-                group_name,
-                {
-                    "type": "submission_update",
-                    "submission_id": str(submission.id),
-                    "status": submission.status,
-                    "runtime_ms": submission.runtime_ms,
-                    "memory_kb": submission.memory_kb,
-                },
-            )
-        except Exception as e:
-            logger.warning(f"Could not broadcast submission update: {e}")
-
-        return Response({"ok": True})
-
-
-class RunCodeView(APIView):
+class JudgeTestCasesView(_JudgeInternalView):
     """
-    POST /api/run-code/
-    Enqueue a 'sample run' submission to the judge worker instead of running code directly.
+    GET /api/submissions/judge/problems/{problem_id}/testcases/[?sample_only=1]
+    Internal endpoint: the judge fetches test cases here (instead of needing
+    direct database credentials).
     """
 
-    permission_classes = [IsAuthenticated]
-    throttle_classes = [RunThrottle, BurstThrottle]  # Rate limiting
+    def get(self, request, problem_id):
+        from apps.problems.models import Problem, TestCase
 
-    def post(self, request):
-        slug = request.data.get("problem_slug")
-        code = request.data.get("code")
-        language = request.data.get("language")
-
-        if not slug or not code or not language:
-            return Response({"error": "Missing fields"}, status=400)
-
-        try:
-            problem = Problem.objects.get(slug=slug)
-        except Problem.DoesNotExist:
-            return Response({"error": "Problem not found"}, status=404)
-
-        # Create a temporary submission object with QUEUED status
-        from .models import Submission
-
-        submission = Submission.objects.create(
-            user=request.user,
-            problem=problem,
-            code=code,
-            language=language,
-            status=Submission.Status.QUEUED,
-            is_sample_run=True,
-        )
-
-        # Enqueue to RabbitMQ
-        published = publish_submission_job(
-            submission_id=str(submission.id),
-            problem_id=problem.id,
-            language=language,
-            code=code,
-            run_sample=True,  # optional flag to indicate 'sample test run'
-        )
-
-        if not published:
-            submission.status = Submission.Status.INTERNAL_ERROR
-            submission.save(update_fields=["status"])
-            return Response({"error": "Failed to enqueue code"}, status=503)
-
-        return Response(
-            {"submission_id": str(submission.id), "status": submission.status}
-        )
+        problem = Problem.objects.filter(pk=problem_id).first()
+        if problem is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        sample_only = request.query_params.get("sample_only") in ("1", "true", "True")
+        qs = TestCase.objects.filter(problem_id=problem_id)
+        if sample_only:
+            qs = qs.filter(is_sample=True)
+        test_cases = [
+            {
+                "id": tc.id,
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "is_hidden": tc.is_hidden,
+                "is_sample": tc.is_sample,
+            }
+            for tc in qs.order_by("order_index", "id")
+        ]
+        return Response({
+            "problem_id": problem_id,
+            # Function-only judging: the judge generates the harness from this.
+            "function_signature": problem.function_signature or None,
+            "compare_mode": problem.compare_mode,
+            "float_tolerance": problem.float_tolerance,
+            "test_cases": test_cases,
+        })

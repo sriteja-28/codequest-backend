@@ -1,0 +1,113 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/login.css" %}">
+{{ form.media }}
+<style>
+  .oauth-login { margin: 0 0 20px; }
+  .oauth-login .oauth-label {
+    color: var(--body-quiet-color);
+    font-size: 12px;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .oauth-login a.oauth-button {
+    display: block;
+    padding: 10px 14px;
+    margin: 0 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--body-bg);
+    color: var(--body-fg);
+    text-align: center;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .oauth-login a.oauth-button:hover { border-color: var(--body-quiet-color); }
+  .oauth-divider {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 18px 0;
+  }
+  .oauth-help { color: var(--body-quiet-color); font-size: 12px; margin: 8px 0 0; }
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block usertools %}{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block content %}
+{% if form.errors and not form.non_field_errors %}
+<p class="errornote">
+{% blocktranslate count counter=form.errors.items|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+</p>
+{% endif %}
+
+{% if form.non_field_errors %}
+{% for error in form.non_field_errors %}
+<p class="errornote">{{ error }}</p>
+{% endfor %}
+{% endif %}
+
+<div id="content-main">
+
+{% if user.is_authenticated %}
+<p class="errornote">
+{% blocktranslate trimmed %}
+    You are authenticated as {{ username }}, but are not authorized to
+    access this page. Would you like to login to a different account?
+{% endblocktranslate %}
+</p>
+{% endif %}
+
+{% if oauth_providers %}
+<div class="oauth-login">
+  <p class="oauth-label">{% translate "Staff sign-in" %}</p>
+  {% url 'admin:index' as admin_index %}
+  {% for provider in oauth_providers %}
+    {% url 'auth-oauth-start' provider.id as start_url %}
+    <a class="oauth-button" href="{{ start_url }}?next={{ admin_index|urlencode }}&amp;redirect=1">
+      {% blocktranslate with name=provider.name %}Continue with {{ name }}{% endblocktranslate %}
+    </a>
+  {% endfor %}
+  <p class="oauth-help">{% translate "Staff accounts linked to Google or GitHub can sign in above." %}</p>
+</div>
+<hr class="oauth-divider">
+{% endif %}
+
+<form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+  <div class="form-row">
+    {{ form.username.errors }}
+    {{ form.username.label_tag }} {{ form.username }}
+  </div>
+  <div class="form-row">
+    {{ form.password.errors }}
+    {{ form.password.label_tag }} {{ form.password }}
+    <input type="hidden" name="next" value="{{ next }}">
+  </div>
+  {% url 'admin_password_reset' as password_reset_url %}
+  {% if password_reset_url %}
+  <div class="password-reset-link">
+    <a href="{{ password_reset_url }}">{% translate 'Forgotten your password or username?' %}</a>
+  </div>
+  {% endif %}
+  <div class="submit-row">
+    <input type="submit" value="{% translate 'Log in' %}">
+  </div>
+  {% if dev_password_auth %}
+  <p class="oauth-help">{% translate "Local development: seeded accounts may use this password form." %}</p>
+  {% endif %}
+</form>
+
+</div>
+{% endblock %}

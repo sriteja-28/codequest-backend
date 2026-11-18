@@ -7,7 +7,10 @@ urlpatterns = [
     # Built-in Django admin (fallback / superuser access)
     path("django-admin/", admin.site.urls),
     # API routes — all prefixed with /api/
+    path("api/", include("apps.core.urls")),  # /api/health/, /api/config/
     path("api/auth/", include("apps.users.urls")),
+    path("api/users/", include("apps.users.profile_urls")),
+    path("api/courses/", include("apps.courses.urls")),
     path("api/problems/", include("apps.problems.urls")),
     path("api/submissions/", include("apps.submissions.urls")),
     path("api/contests/", include("apps.contests.urls")),

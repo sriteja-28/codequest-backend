@@ -1,24 +1,12 @@
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from .models import Submission
+"""
+Submission signals.
 
-TERMINAL_STATUSES = {"ACCEPTED", "WRONG_ANSWER", "RUNTIME_ERROR", "TIME_LIMIT", "MEMORY_LIMIT", "COMPILE_ERROR", "INTERNAL_ERROR"}
+Contest scoring used to run from a post_save receiver here, which re-scored a
+submission on *every* save of a terminal row (duplicate judge callbacks,
+admin edits) and double-counted wrong attempts. Verdict side effects now run
+exactly once from apps.submissions.services.finalize_submission(), called in
+the same transaction as the terminal state transition.
 
-@receiver(post_save, sender=Submission)
-def on_submission_saved(sender, instance, **kwargs):
-    """
-    Fires every time a Submission is saved.
-    Only acts when status reaches a terminal state AND submission belongs to a contest.
-    """
-    if instance.status not in TERMINAL_STATUSES:
-        return
-    if not instance.contest_id:
-        return
-
-    # Update contest scoring
-    from apps.contests.scoring import handle_contest_submission
-    handle_contest_submission(instance)
-
-    # Broadcast updated leaderboard via WebSocket
-    from apps.contests.views import _broadcast_leaderboard
-    _broadcast_leaderboard(instance.contest.slug)
+This module is still imported by SubmissionsConfig.ready(); keep new receivers
+idempotent.
+"""

@@ -93,11 +93,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.role == self.Role.ADMIN
 
     def get_ai_hint_limit(self):
-        from django.conf import settings
+        # Runtime quota (admin settings), falling back to AI_HINTS_*_DAILY.
+        from apps.core.site import hint_quota
 
-        return (
-            settings.AI_HINTS_PRO_DAILY if self.is_pro else settings.AI_HINTS_FREE_DAILY
-        )
+        return hint_quota(pro=self.is_pro)
 
     def get_ai_chat_limit(self):
         from django.conf import settings
@@ -135,6 +134,42 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.save(update_fields=["current_streak", "best_streak", "last_active_date"])
 
 
+class SocialIdentity(models.Model):
+    """
+    A Google or GitHub account that signs in as `user`.
+
+    Matched on the provider's permanent account id (`subject`: Google's `sub`,
+    GitHub's numeric user id), never on email, which can change or be reused.
+    A user has at most one identity per provider.
+    """
+
+    class Provider(models.TextChoices):
+        GOOGLE = "google", "Google"
+        GITHUB = "github", "GitHub"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="identities")
+    provider = models.CharField(max_length=16, choices=Provider.choices)
+    subject = models.CharField(max_length=255)
+    # As reported by the provider at the last sign-in (informational only).
+    email = models.EmailField(blank=True)
+    email_verified = models.BooleanField(default=False)
+    display_name = models.CharField(max_length=150, blank=True)
+    avatar_url = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "user_social_identities"
+        ordering = ["provider"]
+        constraints = [
+            models.UniqueConstraint(fields=["provider", "subject"], name="uniq_identity_provider_subject"),
+            models.UniqueConstraint(fields=["user", "provider"], name="uniq_identity_user_provider"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_provider_display()} sign-in for user {self.user_id}"
+
+
 class UserSolvedProblem(models.Model):
     """Track which problems a user has solved (for dashboard / stats)."""
 
@@ -149,3 +184,27 @@ class UserSolvedProblem(models.Model):
     class Meta:
         db_table = "user_solved_problems"
         unique_together = [("user", "problem")]
+
+
+class UserDailyActivity(models.Model):
+    """Per-day attempt counters used by the home/profile heatmap.
+
+    A row is written for every judged (non-sample, non-infrastructure) attempt,
+    accepted or not. `date` is UTC, matching the streak calculation.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="daily_activity"
+    )
+    date = models.DateField(db_index=True)
+    submissions = models.PositiveIntegerField(default=0)
+    accepted = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "user_daily_activity"
+        ordering = ["-date"]
+        unique_together = [("user", "date")]
+        indexes = [models.Index(fields=["user", "date"])]
+
+    def __str__(self):
+        return f"{self.user_id} {self.date}: {self.submissions}/{self.accepted}"

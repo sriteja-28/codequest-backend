@@ -4,3 +4,13 @@ __pycache__/
 .env*
 db.sqlite3
 leet_venv/
+# env templates are documentation and must be committed
+!.env.example
+
+# local dev tooling output
+.dev/
+.pytest_cache/
+staticfiles/
+media/
+.leet_venv/
+.venv/

@@ -1,12 +1,18 @@
 """
 Cookie-based JWT authentication for DRF.
 Reads the access token from an HTTP-only cookie instead of Authorization header.
-Falls back to header for internal API calls (e.g., judge service).
+Falls back to the Authorization header for CLI tools.
+
+An invalid/expired token, a deleted or deactivated user, or a banned user is
+treated as anonymous (authenticate() returns None). Protected endpoints then
+answer 401 (the frontend refreshes the token once), while public endpoints keep
+working for visitors who still carry a stale cookie.
 """
 
+from django.conf import settings
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from django.conf import settings
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -14,7 +20,7 @@ class CookieJWTAuthentication(JWTAuthentication):
         # 1. Try cookie first
         raw_token = request.COOKIES.get(settings.SIMPLE_JWT.get("AUTH_COOKIE", "access_token"))
 
-        # 2. Fall back to Authorization header (for judge service, CLI tools)
+        # 2. Fall back to Authorization header (CLI tools)
         if raw_token is None:
             header = self.get_header(request)
             if header is None:
@@ -25,7 +31,11 @@ class CookieJWTAuthentication(JWTAuthentication):
 
         try:
             validated_token = self.get_validated_token(raw_token)
-        except (InvalidToken, TokenError):
+            user = self.get_user(validated_token)
+        except (InvalidToken, TokenError, AuthenticationFailed):
             return None
 
-        return self.get_user(validated_token), validated_token
+        if getattr(user, "is_banned", False):
+            return None
+
+        return user, validated_token

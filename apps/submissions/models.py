@@ -6,7 +6,8 @@ class Submission(models.Model):
     class Language(models.TextChoices):
         PYTHON = "python", "Python 3"
         CPP = "cpp", "C++ 17"
-        JAVA = "java", "Java 17"
+        # Label matches the judge image (eclipse-temurin:21, judge/languages/java)
+        JAVA = "java", "Java 21"
         JAVASCRIPT = "javascript", "JavaScript (Node)"
 
     class Status(models.TextChoices):
@@ -66,6 +67,10 @@ class SubmissionResult(models.Model):
         RUNTIME_ERROR = "RUNTIME_ERROR", "Runtime Error"
         TIME_LIMIT = "TIME_LIMIT", "Time Limit Exceeded"
         MEMORY_LIMIT = "MEMORY_LIMIT", "Memory Limit Exceeded"
+        # The judge reports these per test case too (compile failure on the
+        # first case, sandbox infrastructure failure).
+        COMPILE_ERROR = "COMPILE_ERROR", "Compile Error"
+        INTERNAL_ERROR = "INTERNAL_ERROR", "Internal Error"
 
     submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name="results")
     test_case = models.ForeignKey("problems.TestCase", on_delete=models.CASCADE)

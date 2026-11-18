@@ -11,6 +11,16 @@ class Contest(models.Model):
     is_public = models.BooleanField(default=True)
     is_rated = models.BooleanField(default=False)
     max_participants = models.PositiveIntegerField(null=True, blank=True)
+    release_problems = models.BooleanField(
+        default=True,
+        help_text=(
+            "When the contest is finalized, publish its unpublished problems to the practice "
+            "catalogue. Author contest problems unpublished: participants can open them once the "
+            "contest starts, and nobody else sees them before the release."
+        ),
+    )
+    # Set once by apps.contests.finalize: final ranks frozen, problems released.
+    finalized_at = models.DateTimeField(null=True, blank=True, editable=False, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -23,7 +33,13 @@ class Contest(models.Model):
         return self.name
 
     @property
+    def is_finalized(self) -> bool:
+        return self.finalized_at is not None
+
+    @property
     def status(self):
+        if self.is_finalized:
+            return "ended"
         now = timezone.now()
 
         if self.start_at is None:
@@ -76,7 +92,11 @@ class ContestParticipant(models.Model):
     registered_at = models.DateTimeField(auto_now_add=True)
     is_disqualified = models.BooleanField(default=False)
     disqualified_reason = models.TextField(blank=True)
+    # Points from solved problems + score_adjustment (kept by every rescore).
     final_score = models.IntegerField(default=0)
+    # Admin correction (bonus or penalty points) that survives later verdicts.
+    score_adjustment = models.IntegerField(default=0)
+    adjustment_reason = models.CharField(max_length=200, blank=True)
     rank = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:

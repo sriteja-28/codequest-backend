@@ -1,40 +1,38 @@
-from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import User
+from rest_framework import serializers
+
+from .models import SocialIdentity, User
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
-    password_confirm = serializers.CharField(write_only=True)
+class DevLoginSerializer(serializers.Serializer):
+    """Email + password sign-in for local development only (DEBUG-gated view)."""
 
-    class Meta:
-        model = User
-        fields = ["email", "username", "password", "password_confirm", "display_name"]
-
-    def validate(self, data):
-        if data["password"] != data["password_confirm"]:
-            raise serializers.ValidationError("Passwords do not match.")
-        return data
-
-    def create(self, validated_data):
-        validated_data.pop("password_confirm")
-        return User.objects.create_user(**validated_data)
-
-
-class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
 
     def validate(self, data):
-        user = authenticate(username=data["email"], password=data["password"])
-        if not user:
-            raise serializers.ValidationError("Invalid credentials.")
+        request = self.context.get("request")
+        user = authenticate(request=request, username=data["email"], password=data["password"])
+        if user is None:
+            raise serializers.ValidationError("Invalid email or password.")
         if not user.is_active:
-            raise serializers.ValidationError("Account is deactivated.")
+            raise serializers.ValidationError("This account is deactivated.")
         if user.is_banned:
-            raise serializers.ValidationError("Account is banned.")
+            raise serializers.ValidationError("This account is suspended.")
         data["user"] = user
         return data
+
+
+class SocialIdentitySerializer(serializers.ModelSerializer):
+    provider_display = serializers.CharField(source="get_provider_display", read_only=True)
+
+    class Meta:
+        model = SocialIdentity
+        fields = [
+            "id", "provider", "provider_display", "email", "email_verified",
+            "display_name", "avatar_url", "created_at", "last_login_at",
+        ]
+        read_only_fields = fields
 
 
 class UserPublicSerializer(serializers.ModelSerializer):

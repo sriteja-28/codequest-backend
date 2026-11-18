@@ -1,41 +1,41 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
 
 
 class Section(models.Model):
-    """Top-level grouping: Arrays, Graphs, DP, etc."""
-    class Name(models.TextChoices):
-        ARRAY = "ARRAY", "Array"
-        STRING = "STRING", "String"
-        LINKED_LIST = "LINKED_LIST", "Linked List"
-        TREE = "TREE", "Tree"
-        GRAPH = "GRAPH", "Graph"
-        DYNAMIC_PROGRAMMING = "DP", "Dynamic Programming"
-        BACKTRACKING = "BACKTRACKING", "Backtracking"
-        BINARY_SEARCH = "BINARY_SEARCH", "Binary Search"
-        HEAP = "HEAP", "Heap / Priority Queue"
-        STACK = "STACK", "Stack"
-        QUEUE = "QUEUE", "Queue"
-        HASH_MAP = "HASH_MAP", "Hash Map / Set"
-        TWO_POINTERS = "TWO_POINTERS", "Two Pointers"
-        SLIDING_WINDOW = "SLIDING_WINDOW", "Sliding Window"
-        BIT_MANIPULATION = "BIT_MANIPULATION", "Bit Manipulation"
-        MATH = "MATH", "Math & Geometry"
-        GREEDY = "GREEDY", "Greedy"
-        INTERVALS = "INTERVALS", "Intervals"
-        OTHER = "OTHER", "Other"
+    """Admin-managed grouping for the catalogue (arrays, graphs, DP, ...).
 
-    name = models.CharField(max_length=30, choices=Name.choices, unique=True)
-    display_name = models.CharField(max_length=60)
+    Sections are deliberately not a fixed enum: staff can add a new section from
+    Django admin or the admin dashboard without a code change. `name` stays the
+    stable machine key used by seeds/filters, `slug` is the URL-friendly key.
+    """
+
+    name = models.CharField(max_length=60, unique=True)
+    slug = models.SlugField(max_length=60, unique=True, db_index=True, blank=True)
+    display_name = models.CharField(max_length=80)
+    description_md = models.TextField(blank=True)
     order_index = models.PositiveSmallIntegerField(default=0)
     icon = models.CharField(max_length=50, blank=True, help_text="Emoji or icon class")
+    prerequisites = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="unlocks",
+        help_text="Sections a learner should finish first (used by the roadmap).",
+    )
 
     class Meta:
         db_table = "sections"
-        ordering = ["order_index"]
+        ordering = ["order_index", "display_name"]
 
     def __str__(self):
         return self.display_name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
 
 class Tag(models.Model):
@@ -70,6 +70,11 @@ class Problem(models.Model):
         FREE = "FREE", "Free"
         PRO = "PRO", "Pro Only"
 
+    class CompareMode(models.TextChoices):
+        EXACT = "EXACT", "Exact (JSON-aware text)"
+        FLOAT = "FLOAT", "Floating point with tolerance"
+        UNORDERED = "UNORDERED", "Unordered JSON array"
+
     # Identity
     slug = models.SlugField(max_length=120, unique=True, db_index=True)
     title = models.CharField(max_length=200)
@@ -92,8 +97,32 @@ class Problem(models.Model):
     # Hints (newline-separated, progressive)
     hints_md = models.TextField(blank=True, help_text="Hints separated by --- on its own line")
 
+    # Function-only judging. When set, users write only their function/class and
+    # the judge generates the input parsing and result printing. Leave blank for
+    # legacy stdin/stdout problems.
+    function_signature = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            'Function-only judge signature, e.g. {"name": "twoSum", '
+            '"params": [{"name": "nums", "type": "int[]"}, '
+            '{"name": "target", "type": "int"}], "return_type": "int[]"}. '
+            "Leave blank for stdin/stdout problems."
+        ),
+    )
+    compare_mode = models.CharField(
+        max_length=12,
+        choices=CompareMode.choices,
+        default=CompareMode.EXACT,
+        help_text="Use Unordered when any valid ordering of the returned array is accepted.",
+    )
+    float_tolerance = models.FloatField(
+        default=1e-5,
+        help_text="Absolute tolerance used by the Floating point compare mode.",
+    )
+
     # Starter code templates — shown in the editor when a user opens the problem.
-    # Must include stdin reading boilerplate to work with the judge.
+    # When blank and function_signature is set, the API generates them.
     starter_code_python     = models.TextField(blank=True, default="")
     starter_code_cpp        = models.TextField(blank=True, default="")
     starter_code_java       = models.TextField(blank=True, default="")
@@ -118,6 +147,17 @@ class Problem(models.Model):
     def __str__(self):
         return f"#{self.number} {self.title}" if self.number else self.title
 
+    def clean(self):
+        super().clean()
+        if not self.function_signature:
+            return
+        from .codegen import SignatureError, validate_signature
+
+        try:
+            self.function_signature = validate_signature(self.function_signature)
+        except SignatureError as exc:
+            raise ValidationError({"function_signature": str(exc)}) from exc
+
     @property
     def acceptance_rate(self):
         if self.total_submissions == 0:
@@ -136,6 +176,79 @@ class ProblemTag(models.Model):
     class Meta:
         db_table = "problem_tags"
         unique_together = [("problem", "tag")]
+
+
+class ProblemList(models.Model):
+    """Curated practice list (for example a 12-problem warm-up path)."""
+
+    slug = models.SlugField(max_length=120, unique=True, db_index=True)
+    title = models.CharField(max_length=160)
+    description_md = models.TextField(blank=True)
+    is_published = models.BooleanField(default=True, db_index=True)
+    order_index = models.PositiveSmallIntegerField(default=0)
+    problems = models.ManyToManyField(
+        Problem, through="ProblemListItem", related_name="practice_lists", blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "problem_lists"
+        ordering = ["order_index", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class ProblemListItem(models.Model):
+    problem_list = models.ForeignKey(
+        ProblemList, on_delete=models.CASCADE, related_name="items"
+    )
+    problem = models.ForeignKey(
+        Problem, on_delete=models.CASCADE, related_name="list_items"
+    )
+    order_index = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "problem_list_items"
+        ordering = ["order_index", "id"]
+        unique_together = [("problem_list", "problem")]
+
+    def __str__(self):
+        return f"{self.problem_list.slug} — {self.problem.slug}"
+
+
+class Star(models.Model):
+    """A user's saved problem. Toggled from the problem page."""
+
+    user = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="stars")
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE, related_name="stars")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "stars"
+        ordering = ["-created_at"]
+        unique_together = [("user", "problem")]
+
+    def __str__(self):
+        return f"{self.user_id} ★ {self.problem.slug}"
+
+
+class DailyProblem(models.Model):
+    """The problem featured on the home page for one UTC date."""
+
+    date = models.DateField(unique=True, db_index=True)
+    problem = models.ForeignKey(
+        Problem, on_delete=models.CASCADE, related_name="daily_slots"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "daily_problems"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.date}: {self.problem.slug}"
 
 
 class TestCase(models.Model):

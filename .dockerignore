@@ -1,0 +1,15 @@
+# Never bake secrets or local artifacts into the image.
+.env*
+*.log
+.venv/
+leet_venv/
+venv/
+staticfiles/
+media/
+.dev/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+db.sqlite3
+Dockerfile
+.dockerignore
